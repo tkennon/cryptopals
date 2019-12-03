@@ -23,10 +23,7 @@ func DecodeSingleByteXOR(h string) (decrypted string, key byte, err error) {
 	mostChars := 0
 	for i := 0; i < 256; i++ {
 		b := []byte{byte(i)}
-		xor, err := FixedXOR(raw, bytes.Repeat(b, len(raw)))
-		if err != nil {
-			return "", 0, err
-		}
+		xor := fixedXOR(raw, bytes.Repeat(b, len(raw)))
 		xorStr := ToString(xor)
 		chars := 0
 		for _, c := range xorStr {
