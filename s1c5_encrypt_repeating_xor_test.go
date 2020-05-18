@@ -1,10 +1,10 @@
 package cryptopals_test
 
 import (
-	"me/cryptopals"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tkennon/cryptopals"
 )
 
 func TestS1C5(t *testing.T) {

@@ -5,8 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"me/cryptopals"
+	"github.com/tkennon/cryptopals"
 )
 
 func TestS1C4(t *testing.T) {

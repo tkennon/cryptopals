@@ -1,11 +1,11 @@
 package cryptopals_test
 
 import (
-	"me/cryptopals"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tkennon/cryptopals"
 )
 
 var input = `HUIfTQsPAh9PE048GmllH0kcDk4TAQsHThsBFkU2AB4BSWQgVB0dQzNTTmVS
