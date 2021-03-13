@@ -236,14 +236,11 @@ func BreakRepeatingKeyXOR(ciphertext []byte, maxKeysize int) ([]byte, error) {
 	for _, nhd := range nhdToKeysizes {
 		nhds = append(nhds, nhd)
 	}
-	fmt.Println(nhdToKeysizes)
 	sort.Float64s(nhds)
 	mostLikelyKeysize := 0
 	for ks, nhd := range nhdToKeysizes {
 		if nhds[0] == nhd {
 			mostLikelyKeysize = ks
-			fmt.Println("XXXTK: keysize used", mostLikelyKeysize)
-			fmt.Println("XXXTK: normalised HD", nhd)
 			break
 		}
 	}
@@ -286,9 +283,6 @@ func BreakRepeatingKeyXOR(ciphertext []byte, maxKeysize int) ([]byte, error) {
 		// Put them together and you have the key.
 		repeatingXORKey = append(repeatingXORKey, key)
 	}
-	fmt.Println(ToString(repeatingXORKey))
-	fmt.Println(len(repeatingXORKey))
-	fmt.Println(len(ciphertext))
 
 	var decrypted []byte
 	l := len(repeatingXORKey)

@@ -471,8 +471,6 @@ FlRlIkw5QwA2GggaR0YBBg5ZTgIcAAw3SVIaAQcVEU8QTyEaYy0fDE4ITlhI
 Jk8DCkkcC3hFMQIEC0EbAVIqCFZBO1IdBgZUVA4QTgUWSR4QJwwRTWM=`
 
 	debase64d, err := cryptopals.FromBase64(input)
-	fmt.Println(err)
 	decoded, err := cryptopals.BreakRepeatingKeyXOR(debase64d, 40)
-	fmt.Println(err)
-	fmt.Println(cryptopals.ToString(decoded))
+	t.Fail() // I have not finished writing the test.
 }
