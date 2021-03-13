@@ -5,9 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/bits"
-	"sort"
 	"strings"
 	"unicode"
 )
@@ -36,7 +34,8 @@ func ToBase64(r []byte) string {
 	return base64.StdEncoding.EncodeToString(r)
 }
 
-// HexToBase64 takes a hex-encoded string and returns it as a base-64 encoded string.
+// HexToBase64 takes a hex-encoded string and returns it as a base-64 encoded
+// string.
 func HexToBase64(h string) (string, error) {
 	r, err := FromHex(h)
 	if err != nil {
@@ -45,7 +44,8 @@ func HexToBase64(h string) (string, error) {
 	return ToBase64(r), nil
 }
 
-// Base64ToHex takes a base64-encoded string and returns it as a hex-encoded string.
+// Base64ToHex takes a base64-encoded string and returns it as a hex-encoded
+// string.
 func Base64ToHex(b64 string) (string, error) {
 	r, err := FromBase64(b64)
 	if err != nil {
@@ -97,39 +97,41 @@ func FixedHexXOR(a, b string) (string, error) {
 // Challenge 3
 //
 
-// ToString converts a raw byte slice into a string.
-func ToString(r []byte) string {
-	return string(r)
-}
-
 // DecodeSingleByteXOR takes a hex-encoded string as input and attempts to
 // decrypt it assuming it has been encrypted with a single character block
 // cipher.
-func DecodeSingleByteXOR(h string) (decrypted string, key byte, err error) {
+func DecodeSingleByteXOR(h string) (plaintext string, key byte, err error) {
 	raw, err := FromHex(h)
 	if err != nil {
 		return "", 0, err
 	}
+
+	rawPlaintext, key := decodeSingleByteXOR(raw)
+
+	return string(rawPlaintext), key, nil
+}
+
+func decodeSingleByteXOR(ciphertext []byte) (plaintext []byte, key byte) {
 	// For each one-byte value, XOR the raw bytes. Then check if the resulting
 	// string looks like common English.
 	mostChars := 0
 	for i := 0; i < 256; i++ {
 		b := []byte{byte(i)}
-		xor := fixedXOR(raw, bytes.Repeat(b, len(raw)))
-		xorStr := ToString(xor)
+		xor := fixedXOR(ciphertext, bytes.Repeat(b, len(ciphertext)))
 		chars := 0
-		for _, c := range xorStr {
-			if unicode.IsLetter(c) {
+		for _, c := range string(xor) {
+			if unicode.IsLetter(c) || unicode.IsSpace(c) || unicode.IsNumber(c) {
 				chars++
 			}
 		}
 		if chars > mostChars {
 			mostChars = chars
-			key = b[0]
-			decrypted = xorStr
+			key = byte(i)
+			plaintext = xor
 		}
 	}
-	return decrypted, key, nil
+
+	return plaintext, key
 }
 
 //
@@ -149,11 +151,11 @@ func countCommonChars(s string) int {
 	return count
 }
 
-// DetectSingleByteXOR takes as input a slice of hex-encoded strings, and
+// DetectSingleByteXOR takes as input a slice of hex-encoded ciphertexts, and
 // determines which one of them has been encrypted with a single byte XOR. It
-// returns the encrypted string, the decrypted string, the encryption key, and
+// returns the siphertext, the plaintext, the encryption key, and
 // any error.
-func DetectSingleByteXOR(hs []string) (encrypted, decrypted string, key byte, err error) {
+func DetectSingleByteXOR(hs []string) (ciphertext, plaintext string, key byte, err error) {
 	mostLetters := 0
 	for _, h := range hs {
 		d, k, err := DecodeSingleByteXOR(h)
@@ -162,31 +164,40 @@ func DetectSingleByteXOR(hs []string) (encrypted, decrypted string, key byte, er
 		}
 		if letters := countCommonChars(d); letters > mostLetters {
 			mostLetters = letters
-			encrypted = h
-			decrypted = d
+			ciphertext = h
+			plaintext = d
 			key = k
 		}
 	}
-	return encrypted, decrypted, key, nil
+	return ciphertext, plaintext, key, nil
 }
 
 //
 // Challenge 5
 //
 
-// EncryptRepeatingKeyXOR encrypts the input using the provided key using
-// repeated XOR encryption. If no key is given, then the input is returned
-// unchanged.
-func EncryptRepeatingKeyXOR(key, input []byte) []byte {
-	if len(key) == 0 {
-		return input
+// EncryptRepeatingKeyXOR encrypts the input plaintext using the provided key
+// using repeated XOR encryption. If no kqey is given, then the input is
+// returned unchanged.
+func EncryptRepeatingKeyXOR(key, plaintext []byte) []byte {
+	keylen := len(key)
+	if keylen == 0 {
+		return plaintext
 	}
 
-	var output []byte
-	for i, b := range input {
-		output = append(output, key[i%len(key)]^b)
+	var ciphertext []byte
+	for i, b := range plaintext {
+		ciphertext = append(ciphertext, key[i%keylen]^b)
 	}
-	return output
+	return ciphertext
+}
+
+// DecryptRepeatingKeyXOR decrypts the input ciphertext using the provided key
+// using repeated XOR decryption. If not key is given then the input is return
+// unchanged.
+func DecryptRepeatingKeyXOR(key, ciphertext []byte) []byte {
+	// Symmetry!
+	return EncryptRepeatingKeyXOR(key, ciphertext)
 }
 
 //
@@ -199,16 +210,39 @@ func HammingDistance(a, b []byte) (int, error) {
 	if len(a) != len(b) {
 		return 0, errors.New("inputs are of different lengths")
 	}
-	hd := 0
+	hammingDistance := 0
 	for _, byt := range fixedXOR(a, b) {
-		hd += bits.OnesCount8(byt)
+		hammingDistance += bits.OnesCount8(byt)
 	}
-	return hd, nil
+	return hammingDistance, nil
+}
+
+func NormalisedHammingDistance(input []byte, blockSize int) float64 {
+	numBlocks := len(input) / blockSize
+	cumulativeHD := 0
+	numHDs := 0
+	for i := 0; i < numBlocks; i++ {
+		for j := 0; j < numBlocks; j++ {
+			if i == j {
+				continue
+			}
+			block1 := input[i*blockSize : (i+1)*blockSize]
+			block2 := input[j*blockSize : (j+1)*blockSize]
+			hd, err := HammingDistance(block1, block2)
+			if err != nil {
+				panic(err)
+			}
+			cumulativeHD += hd
+			numHDs++
+		}
+	}
+
+	return float64(cumulativeHD) / float64(numHDs*8*blockSize)
 }
 
 func BreakRepeatingKeyXOR(ciphertext []byte, maxKeysize int) ([]byte, error) {
 	if len(ciphertext) == 0 {
-		// Empty data data be encrypted.
+		// Empty data can't be encrypted, so is trivially decrypted!
 		return nil, nil
 	}
 
@@ -219,29 +253,19 @@ func BreakRepeatingKeyXOR(ciphertext []byte, maxKeysize int) ([]byte, error) {
 	// The KEYSIZE with the smallest normalized edit distance is probably the
 	// key. You could proceed perhaps with the smallest 2-3 KEYSIZE values. Or
 	// take 4 KEYSIZE blocks instead of 2 and average the distances.
-	nhdToKeysizes := make(map[int]float64)
 	if len(ciphertext)/2 < maxKeysize {
 		maxKeysize = len(ciphertext) / 2
 	}
+
+	var (
+		mostLikelyKeysize = 1
+		smallestNHD       = 1.0
+	)
 	for keysize := 1; keysize <= maxKeysize; keysize++ {
-		first := ciphertext[:keysize]
-		second := ciphertext[keysize : 2*keysize]
-		hd, err := HammingDistance(first, second)
-		if err != nil {
-			return nil, fmt.Errorf("could not compute Hamming Distance for keysize %d: %w", keysize, err)
-		}
-		nhdToKeysizes[keysize] = float64(hd) / float64(keysize)
-	}
-	var nhds []float64
-	for _, nhd := range nhdToKeysizes {
-		nhds = append(nhds, nhd)
-	}
-	sort.Float64s(nhds)
-	mostLikelyKeysize := 0
-	for ks, nhd := range nhdToKeysizes {
-		if nhds[0] == nhd {
-			mostLikelyKeysize = ks
-			break
+		nhd := NormalisedHammingDistance(ciphertext, keysize)
+		if nhd < smallestNHD {
+			smallestNHD = nhd
+			mostLikelyKeysize = keysize
 		}
 	}
 
@@ -262,42 +286,23 @@ func BreakRepeatingKeyXOR(ciphertext []byte, maxKeysize int) ([]byte, error) {
 	// Now transpose the blocks: make a block that is the first byte of every
 	// block, and a block that is the second byte of every block, and so on.
 	transposed := make([][]byte, len(blocks[0]))
-	for _, block := range blocks {
-		for i, b := range block {
-			transposed[i] = append(transposed[i], b)
+	for i := 0; i < len(blocks[0]); i++ {
+		for _, block := range blocks {
+			if i < len(block) {
+				transposed[i] = append(transposed[i], block[i])
+			}
 		}
 	}
 
 	// Solve each block as if it was single-character XOR. You already have code
-	// to do this.
+	// to do this. For each block, the single-byte XOR key that produces the
+	// best looking histogram is the repeating-key XOR key byte for that block.
+	// Put them together and you have the key.
 	var repeatingXORKey []byte
-	for _, t := range transposed {
-		hex := ToHex(t)
-		_, key, err := DecodeSingleByteXOR(hex)
-		if err != nil {
-			return nil, fmt.Errorf("unable to decode single byte XOR: %w", err)
-		}
-
-		// For each block, the single-byte XOR key that produces the best
-		// looking histogram is the repeating-key XOR key byte for that block.
-		// Put them together and you have the key.
+	for _, block := range transposed {
+		_, key := decodeSingleByteXOR(block)
 		repeatingXORKey = append(repeatingXORKey, key)
 	}
 
-	var decrypted []byte
-	l := len(repeatingXORKey)
-	for len(ciphertext) > 0 {
-		size := l
-		if len(ciphertext) < l {
-			size = len(ciphertext)
-		}
-		d, err := FixedXOR(repeatingXORKey[:size], ciphertext[:size])
-		if err != nil {
-			return nil, err
-		}
-		ciphertext = ciphertext[size:]
-		decrypted = append(decrypted, d...)
-
-	}
-	return decrypted, nil
+	return DecryptRepeatingKeyXOR(repeatingXORKey, ciphertext), nil
 }
