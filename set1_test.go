@@ -11,6 +11,18 @@ import (
 	"github.com/tkennon/cryptopals"
 )
 
+func getTestInput(t *testing.T) []byte {
+	input, err := ioutil.ReadFile(filepath.Join("testdata", t.Name()+".input"))
+	require.NoError(t, err)
+	return input
+}
+
+func getTestExpectedOutput(t *testing.T) []byte {
+	output, err := ioutil.ReadFile(filepath.Join("testdata", t.Name()+".output"))
+	require.NoError(t, err)
+	return output
+}
+
 func TestSet1Challenge1(t *testing.T) {
 	input := "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d"
 	wanted := "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t"
@@ -65,8 +77,7 @@ func TestSet1Challenge3(t *testing.T) {
 }
 
 func TestSet1Challenge4(t *testing.T) {
-	input, err := ioutil.ReadFile(filepath.Join("testdata", t.Name()+".input"))
-	require.NoError(t, err)
+	input := getTestInput(t)
 	ciphertexts := strings.Split(string(input), "\n")
 
 	ciphertext, plaintext, key, err := cryptopals.DetectSingleByteXOR(ciphertexts)
@@ -97,10 +108,8 @@ func TestHammingDistance(t *testing.T) {
 	assert.Equal(t, 37, hd)
 }
 func TestSet1Challenge6(t *testing.T) {
-	input, err := ioutil.ReadFile(filepath.Join("testdata", t.Name()+".input"))
-	require.NoError(t, err)
-	expectedPlaintext, err := ioutil.ReadFile(filepath.Join("testdata", t.Name()+".output"))
-	require.NoError(t, err)
+	input := getTestInput(t)
+	expectedPlaintext := getTestExpectedOutput(t)
 
 	ciphertext := strings.ReplaceAll(string(input), "\n", "")
 	rawCiphertext, err := cryptopals.FromBase64(ciphertext)
@@ -108,4 +117,30 @@ func TestSet1Challenge6(t *testing.T) {
 	plaintext, err := cryptopals.BreakRepeatingKeyXOR(rawCiphertext, 40)
 	require.NoError(t, err)
 	assert.Equal(t, expectedPlaintext, plaintext)
+}
+
+func TestSet1Challenge7(t *testing.T) {
+	input := getTestInput(t)
+	ciphertext, err := cryptopals.FromBase64(string(input))
+	require.NoError(t, err)
+	expectedPlaintext := getTestExpectedOutput(t)
+
+	key := []byte("YELLOW SUBMARINE")
+	plaintext, err := cryptopals.DecryptAES128ECB(key, ciphertext)
+	require.NoError(t, err)
+	assert.Equal(t, expectedPlaintext, plaintext)
+}
+
+func TestSet1Challenge8(t *testing.T) {
+	input := getTestInput(t)
+	lines := strings.Split(string(input), "\n")
+	var found []string
+	for _, line := range lines {
+		if cryptopals.IsAES128ECB([]byte(line)) {
+			found = append(found, line)
+		}
+	}
+
+	assert.Equal(t, 1, len(found))
+	assert.Equal(t, "d880619740a8a19b7840a8a31c810a3d08649af70dc06f4fd5d2d69c744cd283e2dd052f6b641dbf9d11b0348542bb5708649af70dc06f4fd5d2d69c744cd2839475c9dfdbc1d46597949d9c7e82bf5a08649af70dc06f4fd5d2d69c744cd28397a93eab8d6aecd566489154789a6b0308649af70dc06f4fd5d2d69c744cd283d403180c98c8f6db1f2a3f9c4040deb0ab51b29933f2c123c58386b06fba186a", found[0])
 }

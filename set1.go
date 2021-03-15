@@ -2,6 +2,7 @@ package cryptopals
 
 import (
 	"bytes"
+	"crypto/aes"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -305,4 +306,47 @@ func BreakRepeatingKeyXOR(ciphertext []byte, maxKeysize int) ([]byte, error) {
 	}
 
 	return DecryptRepeatingKeyXOR(repeatingXORKey, ciphertext), nil
+}
+
+// DecryptAES128ECB decrypts a ciphertext that has been encrypted using the
+// given key, and a block size of 128 bits in the ECB mode.
+func DecryptAES128ECB(key, ciphertext []byte) (plaintext []byte, err error) {
+	cipherBlock, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	blockSize := 16 // 128 bits.
+	for len(ciphertext) > 0 {
+		block := ciphertext[:blockSize]
+		dst := make([]byte, blockSize)
+		cipherBlock.Decrypt(dst, block)
+		plaintext = append(plaintext, dst...)
+		ciphertext = ciphertext[blockSize:]
+	}
+
+	return plaintext, nil
+}
+
+func IsAES128ECB(ciphertext []byte) bool {
+	chunks := make(map[string]uint)
+	blockSize := 16 // 128 bits.
+	for len(ciphertext) > 0 {
+		block := ciphertext[:blockSize]
+		chunks[string(block)] = chunks[string(block)] + 1
+		ciphertext = ciphertext[blockSize:]
+	}
+
+	// There are 2^128 different possible values for a 16-byte block. For a
+	// random input the chance of two different 16-byte blocks having the same
+	// value are (2^-128 * len(input)/16) which is tiny for any input that could
+	// reasonably be saved on disk. Therefore if we do find two blocks that are
+	// same we can safely assume that the input is not random, and therefore the
+	// block encoding is likely ECB.
+	for _, frequency := range chunks {
+		if frequency > 2 {
+			return true
+		}
+	}
+	return false
 }
